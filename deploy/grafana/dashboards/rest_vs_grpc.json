@@ -1,0 +1,56 @@
+{
+  "title": "REST vs gRPC — байты и время",
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Среднее время выполнения (client)",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 6 },
+      "targets": [
+        { "expr": "sum(increase(app_request_duration_seconds_sum{service=\"client\"}[5m])) by (protocol) / sum(increase(app_request_duration_seconds_count{service=\"client\"}[5m])) by (protocol)", "legendFormat": "{{protocol}}" }
+      ]
+    },
+    {
+      "type": "bargauge",
+      "title": "Отправленные байты (client)",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 6 },
+      "targets": [
+        { "expr": "sum(increase(app_send_bytes_total{service=\"client\"}[5m])) by (protocol)", "legendFormat": "{{protocol}}" }
+      ]
+    },
+    {
+      "type": "bargauge",
+      "title": "Полученные байты (client)",
+      "gridPos": { "x": 0, "y": 6, "w": 12, "h": 6 },
+      "targets": [
+        { "expr": "sum(increase(app_recv_bytes_total{service=\"client\"}[5m])) by (protocol)", "legendFormat": "{{protocol}}" }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "CPU контейнеров",
+      "gridPos": { "x": 12, "y": 6, "w": 12, "h": 8 },
+      "targets": [
+        { "expr": "sum(rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_service=~\"client|processor-rest|processor-grpc\"}[5m])) by (container_label_com_docker_compose_service)", "legendFormat": "{{container_label_com_docker_compose_service}}" }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Сеть: входящие байты",
+      "gridPos": { "x": 0, "y": 14, "w": 12, "h": 8 },
+      "targets": [
+        { "expr": "sum(rate(container_network_receive_bytes_total{container_label_com_docker_compose_service=~\"client|processor-rest|processor-grpc\"}[5m])) by (container_label_com_docker_compose_service)", "legendFormat": "recv {{container_label_com_docker_compose_service}}" }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Сеть: исходящие байты",
+      "gridPos": { "x": 12, "y": 14, "w": 12, "h": 8 },
+      "targets": [
+        { "expr": "sum(rate(container_network_transmit_bytes_total{container_label_com_docker_compose_service=~\"client|processor-rest|processor-grpc\"}[5m])) by (container_label_com_docker_compose_service)", "legendFormat": "send {{container_label_com_docker_compose_service}}" }
+      ]
+    }
+  ]
+}

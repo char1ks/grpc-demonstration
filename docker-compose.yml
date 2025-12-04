@@ -1,0 +1,75 @@
+version: '3.9'
+services:
+  client:
+    build: ./services/client
+    image: grpc-demo-client
+    container_name: grpc-demo-client
+    environment:
+      - NODE_ENV=production
+    ports:
+      - "8082:8080"
+    depends_on:
+      - processor-rest
+      - processor-grpc
+    labels:
+      com.docker.compose.service: client
+
+  processor-rest:
+    build: ./services/processor-rest
+    image: grpc-demo-processor-rest
+    container_name: grpc-demo-processor-rest
+    environment:
+      - NODE_ENV=production
+    ports:
+      - "3000:3000"
+    labels:
+      com.docker.compose.service: processor-rest
+
+  processor-grpc:
+    build: ./services/processor-grpc
+    image: grpc-demo-processor-grpc
+    container_name: grpc-demo-processor-grpc
+    environment:
+      - NODE_ENV=production
+    ports:
+      - "50051:50051"
+      - "3001:3001"
+    labels:
+      com.docker.compose.service: processor-grpc
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: grpc-demo-prometheus
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - client
+      - processor-rest
+      - processor-grpc
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: grpc-demo-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./deploy/grafana/provisioning/datasources/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro
+      - ./deploy/grafana/provisioning/dashboards/dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml:ro
+      - ./deploy/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.0
+    container_name: grpc-demo-cadvisor
+    privileged: true
+    ports:
+      - "8081:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro

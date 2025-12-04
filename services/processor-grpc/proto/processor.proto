@@ -1,0 +1,17 @@
+syntax = "proto3";
+package processor;
+
+message Measurement {
+  double value = 1;
+  string pad = 2;
+}
+
+message Summary {
+  int32 count = 1;
+  double sum = 2;
+  double mean = 3;
+}
+
+service Processor {
+  rpc ProcessStream(stream Measurement) returns (Summary);
+}

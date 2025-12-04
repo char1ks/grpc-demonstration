@@ -55,20 +55,22 @@ app.get('/trigger/grpc', async (req, res) => {
   const start = process.hrtime.bigint()
   let totalSend = 0
   let totalRecv = 0
-  const call = client.ProcessStream((err, summary) => {
-    if (err) {
-      res.status(500).json({ error: err.message })
-      return
-    }
-    const respStr = JSON.stringify(summary)
-    const respLen = Buffer.byteLength(respStr)
-    totalRecv += respLen
-    recvBytes.inc({ protocol: 'grpc', ...serviceLabel }, respLen)
-    const end = process.hrtime.bigint()
-    const elapsed = Number(end - start) / 1e9
-    duration.observe({ protocol: 'grpc', ...serviceLabel }, elapsed)
-    res.json({ protocol: 'grpc', count, size, send_bytes: totalSend, recv_bytes: totalRecv, elapsed_seconds: elapsed, summary })
+  let receivedCount = 0
+
+  const call = client.ProcessBidiStream()
+
+  const p = new Promise((resolve, reject) => {
+    call.on('data', (msg) => {
+      const respStr = JSON.stringify(msg)
+      const respLen = Buffer.byteLength(respStr)
+      totalRecv += respLen
+      recvBytes.inc({ protocol: 'grpc', ...serviceLabel }, respLen)
+      receivedCount++
+    })
+    call.on('end', resolve)
+    call.on('error', reject)
   })
+
   for (let i = 0; i < count; i++) {
     const msg = { value: Math.random(), pad }
     const msgStr = JSON.stringify(msg)
@@ -78,6 +80,16 @@ app.get('/trigger/grpc', async (req, res) => {
     call.write(msg)
   }
   call.end()
+
+  try {
+    await p
+    const end = process.hrtime.bigint()
+    const elapsed = Number(end - start) / 1e9
+    duration.observe({ protocol: 'grpc', ...serviceLabel }, elapsed)
+    res.json({ protocol: 'grpc', count, size, send_bytes: totalSend, recv_bytes: totalRecv, elapsed_seconds: elapsed, received_count: receivedCount })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
 })
 
 app.get('/trigger/grpc-bidi', async (req, res) => {

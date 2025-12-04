@@ -101,11 +101,11 @@
         if (data.protocol === 'grpc') lastGrpc = data
         renderDelta()
         statusEl.textContent = `${label} завершён`
-        statusEl.className = 'metrics ok'
+        statusEl.className = 'status ok'
         return data
       } catch (e) {
         statusEl.textContent = `Ошибка ${label}: ${e.message}`
-        statusEl.className = 'metrics err'
+        statusEl.className = 'status err'
         return null
       }
     }
@@ -132,7 +132,6 @@
     document.getElementById('runRest').onclick = () => run('/trigger/rest', 'REST')
     document.getElementById('runGrpc').onclick = () => run('/trigger/grpc', 'gRPC')
     document.getElementById('runBoth').onclick = async () => {
-      resultsEl.innerHTML = ''
       await run('/trigger/rest', 'REST')
       await run('/trigger/grpc', 'gRPC')
     }

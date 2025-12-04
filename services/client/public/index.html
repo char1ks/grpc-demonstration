@@ -5,37 +5,59 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>REST vs gRPC Demo</title>
   <style>
-    body { font-family: system-ui, sans-serif; margin: 24px; }
-    h1 { margin-bottom: 8px; }
-    .row { display: flex; gap: 24px; flex-wrap: wrap; }
-    .card { border: 1px solid #ddd; border-radius: 8px; padding: 16px; width: 360px; }
-    label { display: block; margin-bottom: 8px; }
-    input { width: 120px; padding: 6px; margin-left: 8px; }
-    button { padding: 8px 12px; margin-right: 8px; }
-    .metrics { margin-top: 12px; }
-    .ok { color: #0a7; }
-    .err { color: #c00; }
+    :root { --bg: #0b0b10; --card: #12131a; --muted: #8b8da2; --text: #f5f6fa; --accent: #7c9cf6; --success: #2ec87f; --danger: #ff5c7a; --border: #26283a; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; background: var(--bg); color: var(--text); }
+    header { padding: 20px 24px; border-bottom: 1px solid var(--border); background: linear-gradient(180deg, #0b0b10 0%, #0e0f16 100%); position: sticky; top: 0; }
+    header h1 { margin: 0; font-size: 20px; letter-spacing: 0.3px; }
+    main { padding: 24px; }
+    .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 24px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+    .span4 { grid-column: span 4; }
+    .span8 { grid-column: span 8; }
+    .title { font-size: 14px; color: var(--muted); margin-bottom: 8px; }
+    label { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; color: var(--muted); }
+    input { width: 140px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: #0b0c13; color: var(--text); }
+    button { padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border); background: #121422; color: var(--text); cursor: pointer; transition: transform .05s ease, background .15s; }
+    button:hover { background: #17192a; }
+    button:active { transform: scale(0.98); }
+    .primary { border-color: #3741a3; background: #1a2049; }
+    .success { border-color: #1f8a56; background: #163b2d; }
+    .status { margin-top: 12px; font-size: 13px; }
+    .status.ok { color: var(--success); }
+    .status.err { color: var(--danger); }
     table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-    th, td { border: 1px solid #eee; padding: 6px; text-align: left; }
+    th, td { border-bottom: 1px solid var(--border); padding: 10px; font-size: 13px; }
+    th { color: var(--muted); font-weight: 600; }
+    .badge { display: inline-block; padding: 4px 8px; border-radius: 999px; font-size: 12px; border: 1px solid var(--border); }
+    .badge.rest { color: #ffd78a; background: #2e2616; border-color: #4a3b1e; }
+    .badge.grpc { color: #b1c4ff; background: #1c223f; border-color: #223165; }
+    .delta { margin-top: 10px; font-size: 13px; }
+    .delta .good { color: var(--success); }
+    .delta .bad { color: var(--danger); }
+    .links a { color: var(--accent); text-decoration: none; }
+    .links a:hover { text-decoration: underline; }
   </style>
   </head>
 <body>
-  <h1>REST vs gRPC — сравнение байт и времени</h1>
-  <p>Введите параметры и запустите оба сценария. Результаты появятся ниже.</p>
-  <div class="row">
-    <div class="card">
+  <header>
+    <h1>REST vs gRPC — сравнение байт и времени</h1>
+  </header>
+  <main>
+  <div class="grid">
+    <div class="card span4">
       <div>
         <label>count: <input id="count" type="number" value="1000" min="1" /></label>
         <label>size: <input id="size" type="number" value="32" min="0" /></label>
       </div>
       <div>
-        <button id="runRest">Запустить REST</button>
-        <button id="runGrpc">Запустить gRPC</button>
-        <button id="runBoth">Запустить оба</button>
+        <button id="runRest" class="primary">Запустить REST</button>
+        <button id="runGrpc" class="primary">Запустить gRPC</button>
+        <button id="runBoth" class="success">Запустить оба</button>
       </div>
-      <div id="status" class="metrics"></div>
+      <div id="status" class="status"></div>
     </div>
-    <div class="card">
+    <div class="card span8">
       <h3>Итоги</h3>
       <table>
         <thead>
@@ -43,10 +65,11 @@
         </thead>
         <tbody id="results"></tbody>
       </table>
+      <div id="delta" class="delta"></div>
     </div>
   </div>
-  <div class="row">
-    <div class="card">
+  <div class="grid" style="margin-top: 24px;">
+    <div class="card span4">
       <h3>Ссылки</h3>
       <ul>
         <li><a href="/metrics" target="_blank">Метрики client</a></li>
@@ -55,11 +78,15 @@
       </ul>
     </div>
   </div>
+  </main>
   <script>
     const resultsEl = document.getElementById('results')
     const statusEl = document.getElementById('status')
     const countEl = document.getElementById('count')
     const sizeEl = document.getElementById('size')
+
+    let lastRest = null
+    let lastGrpc = null
 
     async function run(path, label) {
       const count = Number(countEl.value)
@@ -70,6 +97,9 @@
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
         const data = await resp.json()
         addRow(data.protocol, data.elapsed_seconds, data.send_bytes, data.recv_bytes)
+        if (data.protocol === 'rest') lastRest = data
+        if (data.protocol === 'grpc') lastGrpc = data
+        renderDelta()
         statusEl.textContent = `${label} завершён`
         statusEl.className = 'metrics ok'
         return data
@@ -82,8 +112,21 @@
 
     function addRow(protocol, time, send, recv) {
       const tr = document.createElement('tr')
-      tr.innerHTML = `<td>${protocol}</td><td>${time.toFixed ? time.toFixed(3) : time}</td><td>${send}</td><td>${recv}</td>`
+      const badge = `<span class="badge ${protocol}">${protocol}</span>`
+      tr.innerHTML = `<td>${badge}</td><td>${time.toFixed ? time.toFixed(3) : time}</td><td>${send}</td><td>${recv}</td>`
       resultsEl.appendChild(tr)
+    }
+
+    function renderDelta() {
+      const el = document.getElementById('delta')
+      if (!lastRest || !lastGrpc) { el.textContent = '' ; return }
+      const dt = Number(lastRest.elapsed_seconds) - Number(lastGrpc.elapsed_seconds)
+      const ds = Number(lastRest.send_bytes) - Number(lastGrpc.send_bytes)
+      const dr = Number(lastRest.recv_bytes) - Number(lastGrpc.recv_bytes)
+      const tClass = dt > 0 ? 'good' : 'bad'
+      const sClass = ds > 0 ? 'good' : 'bad'
+      const rClass = dr > 0 ? 'good' : 'bad'
+      el.innerHTML = `Разница (REST − gRPC): <span class="${tClass}">Δвремя=${dt.toFixed(3)}с</span>, <span class="${sClass}">Δsend=${ds}</span>, <span class="${rClass}">Δrecv=${dr}</span>`
     }
 
     document.getElementById('runRest').onclick = () => run('/trigger/rest', 'REST')

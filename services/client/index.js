@@ -1,10 +1,13 @@
 import express from 'express'
 import axios from 'axios'
+import http from 'http'
+import https from 'https'
 import clientProm from 'prom-client'
 import grpc from '@grpc/grpc-js'
 import protoLoader from '@grpc/proto-loader'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { createProxyMiddleware } from 'http-proxy-middleware'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -18,6 +21,11 @@ const recvBytes = new clientProm.Counter({ name: 'app_recv_bytes_total', help: '
 const duration = new clientProm.Histogram({ name: 'app_request_duration_seconds', help: 'request duration seconds', labelNames: ['protocol', 'service'], buckets: [0.05,0.1,0.2,0.5,1,2,5,10,30] })
 
 const serviceLabel = { service: 'client' }
+const restClient = axios.create({
+  httpAgent: new http.Agent({ keepAlive: false, maxSockets: 1 }),
+  httpsAgent: new https.Agent({ keepAlive: false, maxSockets: 1 }),
+  headers: { Connection: 'close' }
+})
 
 app.get('/trigger/rest', async (req, res) => {
   const count = parseInt(req.query.count || '1000', 10)
@@ -31,7 +39,7 @@ app.get('/trigger/rest', async (req, res) => {
     const bodyStr = JSON.stringify(body)
     totalSend += Buffer.byteLength(bodyStr)
     sendBytes.inc({ protocol: 'rest', ...serviceLabel }, Buffer.byteLength(bodyStr))
-    const r = await axios.post('http://processor-rest:3000/process', body, { timeout: 30000 })
+    const r = await restClient.post('http://processor-rest:3000/process', body, { timeout: 30000 })
     const respStr = typeof r.data === 'string' ? r.data : JSON.stringify(r.data)
     const respLen = Buffer.byteLength(respStr)
     totalRecv += respLen
@@ -149,4 +157,6 @@ app.use(express.static(path.join(__dirname, 'public')))
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'))
 })
+app.use('/grafana', createProxyMiddleware({ target: 'http://grafana:3000', changeOrigin: true, pathRewrite: { '^/grafana': '' } }))
+app.use('/prometheus', createProxyMiddleware({ target: 'http://prometheus:9090', changeOrigin: true, pathRewrite: { '^/prometheus': '' } }))
 app.listen(port, () => {})

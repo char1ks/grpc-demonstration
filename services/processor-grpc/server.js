@@ -3,8 +3,12 @@ import protoLoader from '@grpc/proto-loader'
 import path from 'path'
 import express from 'express'
 import prom from 'prom-client'
+import { fileURLToPath } from 'url'
 
-const protoPath = path.join(process.cwd(), 'services', 'processor-grpc', 'proto', 'processor.proto')
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
+const protoPath = path.join(__dirname, 'proto', 'processor.proto')
 const packageDefinition = protoLoader.loadSync(protoPath, { keepCase: true, longs: String, enums: String, defaults: true, oneofs: true })
 const proto = grpc.loadPackageDefinition(packageDefinition).processor
 

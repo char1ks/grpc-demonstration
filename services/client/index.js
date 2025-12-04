@@ -4,6 +4,10 @@ import clientProm from 'prom-client'
 import grpc from '@grpc/grpc-js'
 import protoLoader from '@grpc/proto-loader'
 import path from 'path'
+import { fileURLToPath } from 'url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 const app = express()
 app.use(express.json())
@@ -39,7 +43,7 @@ app.get('/trigger/rest', async (req, res) => {
   res.json({ protocol: 'rest', count, size, send_bytes: totalSend, recv_bytes: totalRecv, elapsed_seconds: elapsed })
 })
 
-const protoPath = path.join(process.cwd(), 'services', 'client', 'proto', 'processor.proto')
+const protoPath = path.join(__dirname, 'proto', 'processor.proto')
 const packageDefinition = protoLoader.loadSync(protoPath, { keepCase: true, longs: String, enums: String, defaults: true, oneofs: true })
 const proto = grpc.loadPackageDefinition(packageDefinition).processor
 

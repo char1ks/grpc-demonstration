@@ -31,7 +31,7 @@
 1. Сборка и запуск:
    - `docker compose up -d --build`
 2. Открыть Grafana:
-   - `http://localhost:3000` (логин/пароль по умолчанию `admin`/`admin`)
+   - `http://localhost:3003` (логин/пароль по умолчанию `admin`/`admin`)
    - Дашборд: «REST vs gRPC — байты и время» (уже провиженится автоматически).
 3. Выполнить сценарии через `client`:
    - REST: `curl "http://localhost:8082/trigger/rest?count=1000&size=32"`
@@ -60,5 +60,5 @@
 ## Быстрые ссылки
 - `client` API: `http://localhost:8082`
 - Prometheus: `http://localhost:9090`
-- Grafana: `http://localhost:3000`
+- Grafana: `http://localhost:3003`
 - cAdvisor UI: `http://localhost:8081`

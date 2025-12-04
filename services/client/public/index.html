@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>REST vs gRPC Demo</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 24px; }
+    h1 { margin-bottom: 8px; }
+    .row { display: flex; gap: 24px; flex-wrap: wrap; }
+    .card { border: 1px solid #ddd; border-radius: 8px; padding: 16px; width: 360px; }
+    label { display: block; margin-bottom: 8px; }
+    input { width: 120px; padding: 6px; margin-left: 8px; }
+    button { padding: 8px 12px; margin-right: 8px; }
+    .metrics { margin-top: 12px; }
+    .ok { color: #0a7; }
+    .err { color: #c00; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    th, td { border: 1px solid #eee; padding: 6px; text-align: left; }
+  </style>
+  </head>
+<body>
+  <h1>REST vs gRPC — сравнение байт и времени</h1>
+  <p>Введите параметры и запустите оба сценария. Результаты появятся ниже.</p>
+  <div class="row">
+    <div class="card">
+      <div>
+        <label>count: <input id="count" type="number" value="1000" min="1" /></label>
+        <label>size: <input id="size" type="number" value="32" min="0" /></label>
+      </div>
+      <div>
+        <button id="runRest">Запустить REST</button>
+        <button id="runGrpc">Запустить gRPC</button>
+        <button id="runBoth">Запустить оба</button>
+      </div>
+      <div id="status" class="metrics"></div>
+    </div>
+    <div class="card">
+      <h3>Итоги</h3>
+      <table>
+        <thead>
+          <tr><th>Протокол</th><th>Время, сек</th><th>send_bytes</th><th>recv_bytes</th></tr>
+        </thead>
+        <tbody id="results"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="row">
+    <div class="card">
+      <h3>Ссылки</h3>
+      <ul>
+        <li><a href="/metrics" target="_blank">Метрики client</a></li>
+        <li><a href="http://localhost:3003" target="_blank">Grafana</a></li>
+        <li><a href="http://localhost:9090" target="_blank">Prometheus</a></li>
+      </ul>
+    </div>
+  </div>
+  <script>
+    const resultsEl = document.getElementById('results')
+    const statusEl = document.getElementById('status')
+    const countEl = document.getElementById('count')
+    const sizeEl = document.getElementById('size')
+
+    async function run(path, label) {
+      const count = Number(countEl.value)
+      const size = Number(sizeEl.value)
+      statusEl.textContent = `Запуск ${label}…`
+      try {
+        const resp = await fetch(`${path}?count=${count}&size=${size}`)
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+        const data = await resp.json()
+        addRow(data.protocol, data.elapsed_seconds, data.send_bytes, data.recv_bytes)
+        statusEl.textContent = `${label} завершён`
+        statusEl.className = 'metrics ok'
+        return data
+      } catch (e) {
+        statusEl.textContent = `Ошибка ${label}: ${e.message}`
+        statusEl.className = 'metrics err'
+        return null
+      }
+    }
+
+    function addRow(protocol, time, send, recv) {
+      const tr = document.createElement('tr')
+      tr.innerHTML = `<td>${protocol}</td><td>${time.toFixed ? time.toFixed(3) : time}</td><td>${send}</td><td>${recv}</td>`
+      resultsEl.appendChild(tr)
+    }
+
+    document.getElementById('runRest').onclick = () => run('/trigger/rest', 'REST')
+    document.getElementById('runGrpc').onclick = () => run('/trigger/grpc', 'gRPC')
+    document.getElementById('runBoth').onclick = async () => {
+      resultsEl.innerHTML = ''
+      await run('/trigger/rest', 'REST')
+      await run('/trigger/grpc', 'gRPC')
+    }
+  </script>
+</body>
+</html>

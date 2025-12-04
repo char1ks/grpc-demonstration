@@ -38,8 +38,25 @@ function processStream(call, callback) {
   })
 }
 
+function processBidiStream(call) {
+  call.on('data', (msg) => {
+    const msgStr = JSON.stringify(msg)
+    recvBytes.inc({ protocol: 'grpc-bidi', ...serviceLabel }, Buffer.byteLength(msgStr))
+    
+    const val = Number(msg.value || 0)
+    const result = val * val
+    const resp = { result }
+    const respStr = JSON.stringify(resp)
+    sendBytes.inc({ protocol: 'grpc-bidi', ...serviceLabel }, Buffer.byteLength(respStr))
+    call.write(resp)
+  })
+  call.on('end', () => {
+    call.end()
+  })
+}
+
 const server = new grpc.Server()
-server.addService(proto.Processor.service, { ProcessStream: processStream })
+server.addService(proto.Processor.service, { ProcessStream: processStream, ProcessBidiStream: processBidiStream })
 server.bindAsync('0.0.0.0:50051', grpc.ServerCredentials.createInsecure(), () => {
   server.start()
 })

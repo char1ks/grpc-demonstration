@@ -80,6 +80,53 @@ app.get('/trigger/grpc', async (req, res) => {
   call.end()
 })
 
+app.get('/trigger/grpc-bidi', async (req, res) => {
+  const count = parseInt(req.query.count || '1000', 10)
+  const size = parseInt(req.query.size || '32', 10)
+  const pad = 'x'.repeat(size)
+  const client = new proto.Processor('processor-grpc:50051', grpc.credentials.createInsecure())
+  const start = process.hrtime.bigint()
+  let totalSend = 0
+  let totalRecv = 0
+  let receivedCount = 0
+
+  const call = client.ProcessBidiStream()
+  
+  const p = new Promise((resolve, reject) => {
+    call.on('data', (msg) => {
+      const respStr = JSON.stringify(msg)
+      const respLen = Buffer.byteLength(respStr)
+      totalRecv += respLen
+      recvBytes.inc({ protocol: 'grpc-bidi', ...serviceLabel }, respLen)
+      receivedCount++
+    })
+    call.on('end', () => {
+      resolve()
+    })
+    call.on('error', reject)
+  })
+
+  for (let i = 0; i < count; i++) {
+    const msg = { value: Math.random(), pad }
+    const msgStr = JSON.stringify(msg)
+    const len = Buffer.byteLength(msgStr)
+    totalSend += len
+    sendBytes.inc({ protocol: 'grpc-bidi', ...serviceLabel }, len)
+    call.write(msg)
+  }
+  call.end()
+  
+  try {
+    await p
+    const end = process.hrtime.bigint()
+    const elapsed = Number(end - start) / 1e9
+    duration.observe({ protocol: 'grpc-bidi', ...serviceLabel }, elapsed)
+    res.json({ protocol: 'grpc-bidi', count, size, send_bytes: totalSend, recv_bytes: totalRecv, elapsed_seconds: elapsed })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 app.get('/metrics', async (req, res) => {
   res.set('Content-Type', clientProm.register.contentType)
   res.end(await clientProm.register.metrics())

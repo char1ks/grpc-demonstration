@@ -12,6 +12,11 @@ message Summary {
   double mean = 3;
 }
 
+message Processed {
+  double result = 1;
+}
+
 service Processor {
   rpc ProcessStream(stream Measurement) returns (Summary);
+  rpc ProcessBidiStream(stream Measurement) returns (stream Processed);
 }
